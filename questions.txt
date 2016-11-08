@@ -1,0 +1,35 @@
+1. Notice that main calls strcmp. What does it mean if strcmp, when passed two strings as arguments, returns 0?
+
+The strings are the same.
+
+2. How would you rewrite the line below, excerpted from main, using only if and else?
+int max = (strcmp(g.level, "debug") == 0) ? 9 : 1024;
+
+int max;
+if (strcmp(g.level, "debug") == 0) {
+    max = 9;
+} else {
+    max = 1024;
+}
+
+3. Under what circumstances might the call to sscanf below, excerpted from main, return 2 instead of 1?
+sscanf(argv[2], " %d %c", &g.number, &c)
+
+If the user entered in only one of the parameters.
+
+4. What fields in g represent the coordinates at which the user’s cursor belongs?
+
+g.x represents mouse X
+g.y represents mouse Y
+
+5. What function (that we wrote) can you call to make the cursor actually appear at those coordinates? (Hint: we told you a little while back!)
+
+Function show_cursor. It returns void.
+
+6. Around what line number in main could you add additional case statements to handle keystrokes besides N, R, and ctrl-L?
+
+Line 180, near the other conditional statements that test for certain character input.
+
+7. Most n00b and l33t boards have lots of blanks. How many blanks are in debug #1? Debug #2? Debug #9? 
+
+They all have the same amount of blanks.
