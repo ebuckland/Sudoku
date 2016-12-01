@@ -9,6 +9,8 @@
 
 #include "sudoku.h"
 
+#define _XOPEN_SOURCE 500
+
 #include <ctype.h>
 #include <ncurses.h>
 #include <signal.h>
@@ -17,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 
 // macro for processing control characters
@@ -34,6 +37,9 @@ struct
 
     // the game's board
     int board[9][9];
+    
+    // the game's starting numbers
+    bool startBoard[9][9];
 
     // the board's number
     int number;
@@ -43,8 +49,11 @@ struct
 
     // the cursor's current location between (0,0) and (8,8)
     int y, x;
+    
+    int lastChange[3];
 } g;
 
+bool boolWon = false;
 
 // prototypes
 void draw_grid(void);
@@ -61,6 +70,11 @@ void show_banner(char *b);
 void show_cursor(void);
 void shutdown(void);
 bool startup(void);
+void determine_start_board(void);
+bool game_won(void);
+void error_check(void);
+void show_error_banner(char *b);
+void hide_error_banner(void);
 
 
 /*
@@ -153,7 +167,9 @@ int main(int argc, char *argv[])
 
         // capitalize input to simplify cases
         ch = toupper(ch);
-
+        
+        bool redrawNums;
+        
         // process user's input
         switch (ch)
         {
@@ -177,6 +193,18 @@ int main(int argc, char *argv[])
                     return 6;
                 }
                 break;
+            
+            // undo the last modification
+            case 'U':
+            case CTRL('z'):
+                if (g.lastChange[0] != -1) 
+                {
+                    g.y = g.lastChange[1];
+                    g.x = g.lastChange[2];
+                    g.board[g.lastChange[1]][g.lastChange[2]] = g.lastChange[0];
+                    redrawNums = true;
+                }
+                break;
 
             // let user manually redraw screen with ctrl-L
             case CTRL('l'):
@@ -190,7 +218,6 @@ int main(int argc, char *argv[])
                     g.y--;
                 else
                     g.y = 8;
-                show_cursor();
                 break;
             
             case KEY_DOWN:
@@ -198,7 +225,6 @@ int main(int argc, char *argv[])
                     g.y++;
                 else
                     g.y = 0;
-                show_cursor();
                 break;
             
             case KEY_LEFT:
@@ -206,7 +232,6 @@ int main(int argc, char *argv[])
                     g.x--;
                 else
                     g.x = 8;
-                show_cursor();
                 break;
             
             case KEY_RIGHT:
@@ -214,7 +239,6 @@ int main(int argc, char *argv[])
                     g.x++;
                 else
                     g.x = 0;
-                show_cursor();
                 break;
             
             // case for clearing space
@@ -222,23 +246,48 @@ int main(int argc, char *argv[])
             case KEY_DC:
             case '.':
             case '0':
+                g.lastChange[1] = g.y;
+                g.lastChange[2] = g.x;
+                g.lastChange[0] = g.board[g.y][g.x];
                 g.board[g.y][g.x] = 0;
+                redrawNums = true;
                 break;
             
             
             // default case for checking if a number
             default:
-                if (isdigit(ch)) 
+                if (isdigit(ch) && !g.startBoard[g.y][g.x]) 
                 {
+                    g.lastChange[1] = g.y;
+                    g.lastChange[2] = g.x;
+                    g.lastChange[0] = g.board[g.y][g.x];
                     g.board[g.y][g.x] = ch - '0';
-                    draw_numbers();
-                    show_cursor();
+                    redrawNums = true;
                 }
         }
-
+        
         // log input (and board's state) if any was received this iteration
-        if (ch != ERR)
+        if (ch != ERR) 
+        {
             log_move(ch);
+            hide_error_banner();
+            error_check();
+            if (redrawNums) 
+            {
+                draw_numbers();
+            }
+            show_cursor();
+            
+            if (game_won()) 
+            {
+                boolWon = true;
+                // draw nums in green
+                draw_numbers();
+                show_cursor();
+                usleep(20000);
+                break;
+            }
+        }
     }
     while (ch != 'Q');
 
@@ -250,9 +299,149 @@ int main(int argc, char *argv[])
     printf("\033[%d;%dH", 0, 0);
 
     // that's all folks
-    printf("\nkthxbai!\n\n");
-    return 0;
+    if (boolWon) 
+    {
+        printf("\nYOU WIN!\n\n");
+        return 1;
+    } 
+    else 
+    {
+        printf("\nkthxbai!\n\n");
+        return 0;
+    }
 }
+
+/*
+* Checks if the user entered in an incorrect number
+*/
+
+void error_check() 
+{
+    // checks to see if the current tile is 0
+    if (g.board[g.y][g.x] == 0) 
+    {
+        hide_error_banner();
+        return;
+    }
+    
+    // checks to see if the number has a duplicate in the row
+    for (int i = 0; i < 9; i++)
+    {
+        if (g.board[g.y][i] == g.board[g.y][g.x] && i != g.x) 
+        {
+            show_error_banner("This number already exists in this row");
+            return;
+        }
+    }
+    
+    // checks to see if the number has a duplicate in the column
+    for (int i = 0; i < 9; i++)
+    {
+        if (g.board[i][g.x] == g.board[g.y][g.x] && i != g.y) 
+        {
+            show_error_banner("This number already exists in this column");
+            return;
+        }
+    }
+    
+    // calculates the board section on x and y from 1 to 3
+    int boardSectionX = (int)((float)g.x / 3 + 1);
+    int boardSectionY = (int)((float)g.y / 3 + 1);
+    
+    // calculates the center location of the board section
+    int centerBoardX = boardSectionX * 3 - 2;
+    int centerBoardY = boardSectionY * 3 - 2;
+    
+    // check if the number has duplicates within the box
+    for (int i = centerBoardY - 1; i < centerBoardY + 2; i++) 
+    {
+        for (int j = centerBoardX - 1; j < centerBoardX + 2; j++) 
+        {
+            if (g.board[i][j] == g.board[g.y][g.x] && !(i == g.y && j == g.x)) 
+            {
+                show_error_banner("This number already exists in this box");
+                return;
+            }
+        }
+    }
+}
+
+void show_error_banner(char *b)
+{
+    // enable color if possible
+    if (has_colors())
+        attron(COLOR_PAIR(PAIR_BANNER));
+
+    // determine where top-left corner of board belongs 
+    mvaddstr(g.top + 5, 0, b);
+
+    // disable color if possible
+    if (has_colors())
+        attroff(COLOR_PAIR(PAIR_BANNER));
+}
+
+void hide_error_banner(void)
+{
+    // get window's dimensions
+    int maxy, maxx;
+    getmaxyx(stdscr, maxy, maxx);
+
+    // overwrite banner with spaces
+    for (int i = 0; i < 41; i++)
+        mvaddch(g.top + 5, i, ' ');
+}
+
+
+
+
+/*
+ * Checks if the game was won
+ */
+
+bool game_won() 
+{
+    for (int i = 0; i < 9; i ++)
+    {
+        bool checkBool[9];
+        for (int j = 0; j < 9; j++)
+        {
+            // sets the checkbool element of the board to true;
+            if (checkBool[g.board[j][i]] == true || g.board[j][i] == 0) 
+            {
+                return false;
+            }
+            else
+            {
+                checkBool[g.board[j][i]] = true;
+            }
+        }
+    }
+    return true;
+}
+
+
+
+
+/*
+ * Determines the starting grid
+ */
+
+void determine_start_board(void) 
+{
+    for (int i = 0; i < 9; i++) 
+    {
+        for (int j = 0; j < 9; j++) 
+        {
+            if (g.board[i][j] != 0) 
+            {
+                g.startBoard[i][j] = true;
+            }
+        }
+    }    
+}
+
+
+
 
 
 /*
@@ -387,6 +576,21 @@ void draw_numbers(void)
     {
         for (int j = 0; j < 9; j++)
         {
+            if (g.startBoard[i][j]) 
+            {
+                if (has_colors())
+                    attron(COLOR_PAIR(START_DIGITS));
+            } 
+            else if (boolWon) 
+            {
+                if (has_colors())
+                    attron(COLOR_PAIR(WON_DIGITS));
+            }
+            else 
+            {
+                if (has_colors())
+                    attron(COLOR_PAIR(PAIR_DIGITS));
+            }
             // determine char
             char c = (g.board[i][j] == 0) ? '.' : g.board[i][j] + '0';
             mvaddch(g.top + i + 1 + i / 3, g.left + 2 + 2 * (j + j / 3), c);
@@ -467,6 +671,10 @@ bool load_board(void)
         fclose(fp);
         return false;
     }
+
+    // fills a 2D boolean array with true for computer filled slots
+    determine_start_board();
+    g.lastChange[0] = -1;
 
     // w00t
     fclose(fp);
@@ -621,7 +829,9 @@ bool startup(void)
             init_pair(PAIR_GRID, FG_GRID, BG_GRID) == ERR || 
             init_pair(PAIR_BORDER, FG_BORDER, BG_BORDER) == ERR || 
             init_pair(PAIR_LOGO, FG_LOGO, BG_LOGO) == ERR || 
-            init_pair(PAIR_DIGITS, FG_DIGITS, BG_DIGITS) == ERR)
+            init_pair(PAIR_DIGITS, FG_DIGITS, BG_DIGITS) == ERR ||
+            init_pair(START_DIGITS, FG_DIGITS_START, BG_DIGITS_START) == ERR ||
+            init_pair(WON_DIGITS, FG_DIGITS_WON, BG_DIGITS_WON) == ERR)
         {
             endwin();
             return false;
