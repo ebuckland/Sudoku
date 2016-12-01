@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
 * Checks if the user entered in an incorrect number
 */
 
-void error_check() 
+void error_check()
 {
     // checks to see if the current tile is 0
     if (g.board[g.y][g.x] == 0) 
@@ -327,7 +327,7 @@ void error_check()
     // checks to see if the number has a duplicate in the row
     for (int i = 0; i < 9; i++)
     {
-        if (g.board[g.y][i] == g.board[g.y][g.x] && i != g.x) 
+        if (g.board[g.y][i] == g.board[g.y][g.x] && i != g.x)
         {
             show_error_banner("This number already exists in this row");
             return;
@@ -345,8 +345,8 @@ void error_check()
     }
     
     // calculates the board section on x and y from 1 to 3
-    int boardSectionX = (int)((float)g.x / 3 + 1);
-    int boardSectionY = (int)((float)g.y / 3 + 1);
+    int boardSectionX = (int) ((float) g.x / 3 + 1);
+    int boardSectionY = (int) ((float) g.y / 3 + 1);
     
     // calculates the center location of the board section
     int centerBoardX = boardSectionX * 3 - 2;
@@ -391,22 +391,19 @@ void hide_error_banner(void)
         mvaddch(g.top + 5, i, ' ');
 }
 
-
-
-
 /*
  * Checks if the game was won
  */
 
-bool game_won() 
+bool game_won()
 {
-    for (int i = 0; i < 9; i ++)
+    for (int i = 0; i < 9; i++)
     {
         bool checkBool[9];
         for (int j = 0; j < 9; j++)
         {
             // sets the checkbool element of the board to true;
-            if (checkBool[g.board[j][i]] == true || g.board[j][i] == 0) 
+            if (checkBool[g.board[j][i]] == true || g.board[j][i] == 0)
             {
                 return false;
             }
@@ -419,30 +416,23 @@ bool game_won()
     return true;
 }
 
-
-
-
 /*
  * Determines the starting grid
  */
 
-void determine_start_board(void) 
+void determine_start_board(void)
 {
-    for (int i = 0; i < 9; i++) 
+    for (int i = 0; i < 9; i++)
     {
-        for (int j = 0; j < 9; j++) 
+        for (int j = 0; j < 9; j++)
         {
-            if (g.board[i][j] != 0) 
+            if (g.board[i][j] != 0)
             {
                 g.startBoard[i][j] = true;
             }
         }
     }    
 }
-
-
-
-
 
 /*
  * Draw's the game's board.
@@ -463,7 +453,7 @@ void draw_grid(void)
         attron(COLOR_PAIR(PAIR_GRID));
 
     // print grid
-    for (int i = 0 ; i < 3 ; i++ )
+    for (int i = 0 ; i < 3 ; i++)
     {
         mvaddstr(g.top + 0 + 4 * i, g.left, "+-------+-------+-------+");
         mvaddstr(g.top + 1 + 4 * i, g.left, "|       |       |       |");
@@ -481,7 +471,6 @@ void draw_grid(void)
     if (has_colors())
         attroff(COLOR_PAIR(PAIR_GRID));
 }
-
 
 /*
  * Draws game's borders.
@@ -829,8 +818,8 @@ bool startup(void)
             init_pair(PAIR_GRID, FG_GRID, BG_GRID) == ERR || 
             init_pair(PAIR_BORDER, FG_BORDER, BG_BORDER) == ERR || 
             init_pair(PAIR_LOGO, FG_LOGO, BG_LOGO) == ERR || 
-            init_pair(PAIR_DIGITS, FG_DIGITS, BG_DIGITS) == ERR ||
-            init_pair(START_DIGITS, FG_DIGITS_START, BG_DIGITS_START) == ERR ||
+            init_pair(PAIR_DIGITS, FG_DIGITS, BG_DIGITS) == ERR || 
+            init_pair(START_DIGITS, FG_DIGITS_START, BG_DIGITS_START) == ERR || 
             init_pair(WON_DIGITS, FG_DIGITS_WON, BG_DIGITS_WON) == ERR)
         {
             endwin();
